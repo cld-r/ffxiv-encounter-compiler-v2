@@ -1,10 +1,12 @@
 import requests
 from datetime import datetime, timezone, timedelta
 
+ULTIMATE_LONG_NAME = "Future's Rewritten (Ultimate)"
+ULTIMATE_SHORT_NAME = "FRU"
 FRU_FILTER_EXPRESSION = "ability.id IN (40140, 40197, 40179, 40212, 40259, 40266, 40269, 40301, 40298, 40306, 40327)"
 FRU_FILTER_EXPRESSION_2 = "ability.name IN ('Fall of Faith', 'Diamond Dust', 'Mirror, Mirror', 'Light Rampant', 'Endless Ice Age', 'Ultimate Relativity', 'Spell-In-Waiting', 'Darklit Dragonsong', 'Crystallize Time', 'Fulgent Blade', 'Paradise Lost')"
 
-FRU_PRIORITY = ['Paradise Lost', 'Fulgent Blade', 'Crystallize Time', 'Darklit Dragonsong', 'Spell-In-Waiting', 'Ultimate Relativity', 'Endless Ice Age', 'Light Rampant', 'Mirror, Mirror', 'Diamond Dust', 'Fall of Faith']
+FRU_PRIORITY = ['Paradise Lost', 'Fulgent Blade', 'Crystallize Time', 'Darklit Dragonsong', 'Spell-In-Waiting', 'Ultimate Relativity', 'Endless Ice Age', 'Light Rampant', 'Mirror, Mirror', 'Diamond Dust', 'Fall of Faith', 'Utopian Sky']
 
 def ms_to_hhmmss(milliseconds):
     seconds = milliseconds // 1000
@@ -13,16 +15,13 @@ def ms_to_hhmmss(milliseconds):
     return f"{hours:02}:{minutes % 60:02}:{seconds % 60:02}"
 
 def ms_to_datetime(milliseconds):
-    seconds = milliseconds / 1000
+    seconds = milliseconds // 1000
     dt_utc = datetime.fromtimestamp(seconds, tz=timezone.utc)
 
+    # Set to CET (UTC+1)
     cet = timezone(timedelta(hours=1))
-    cest = timezone(timedelta(hours=2))
-
-    if dt_utc.astimezone(cet).dst() != timedelta(0):
-        dt_local = dt_utc.astimezone(cest)
-    else:
-        dt_local = dt_utc.astimezone(cet)
+    # Convert to CET / CEST
+    dt_local = dt_utc.astimezone(cet)
     return dt_local.strftime('%a %d %b %Y at %H:%M:%S')
 
 def get_fflogs_access_token(client_id, client_secret):
@@ -88,6 +87,8 @@ def get_fflogs_report(report_id, access_token):
     query($reportID: String!) {
         reportData {
             report(code: $reportID) {
+                startTime
+                endTime
                 fights {
                     id
                     startTime
@@ -113,6 +114,8 @@ def get_fflogs_report(report_id, access_token):
         raid_start_time = None
         raid_end_time = None
 
+        report_start_time = response_data['data']['reportData']['report']['startTime']
+
         for fight in response_data['data']['reportData']['report']['fights']:
             if fight['name'] == 'Futures Rewritten':
                 fight_ids.append(fight['id'])
@@ -128,8 +131,10 @@ def get_fflogs_report(report_id, access_token):
         
         average_pull_duration = round(pull_duration_sum / len(fight_ids))
         pull_count = len(fight_ids)
+        adjusted_raid_start_time = report_start_time + raid_start_time
+        adjusted_raid_end_time = report_start_time + raid_end_time
 
-        return fight_ids, pull_count, raid_start_time, raid_end_time, longest_pull_duration, average_pull_duration, pull_duration_sum
+        return fight_ids, pull_count, adjusted_raid_start_time, adjusted_raid_end_time, longest_pull_duration, average_pull_duration, pull_duration_sum
     else:
         print(f"Failed to get report data: {response.status_code} - {response.text}")
         return None
@@ -143,33 +148,28 @@ def generate_report_summary(url, client_id, client_secret):
         
         raid_duration = raid_end_time - raid_start_time
 
+        latest_event_counts = {event: 0 for event in FRU_PRIORITY}
+
         if fight_ids:
-            latest_event_counts = {}
             for fight_id in fight_ids:
                 latest_event = get_fflogs_events(report_id, fight_id, access_token)
-                # Debug
-                print(f"Events for fight: {fight_id}, {latest_event}") 
-                if latest_event not in latest_event_counts:
-                    latest_event_counts[latest_event] = 1
-                else:
+                if latest_event in latest_event_counts:
                     latest_event_counts[latest_event] += 1
-            # Debug
-            for event, count in latest_event_counts.items():
-                print(f"{event}: {count}")
+
+        event_counts_summary = ", ".join([f"{event}: {latest_event_counts[event]}" for event in reversed(FRU_PRIORITY)])
         
-        summary = f"""
-        *Future's Rewritten (Ultimate)*
-        Report ID:\t\t\t{report_id}
+        summary = (
+            f"{ULTIMATE_LONG_NAME}\n\n"
+            f"Report ID:  \t\t{report_id}\n"
+            f"Total pulls:\t\t{pull_count}\n"
+            f"Raid start: \t\t{ms_to_datetime(raid_start_time)}\n"
+            f"Raid end:   \t\t{ms_to_datetime(raid_end_time)}\n"
+            f"Raid duration:  \t{ms_to_hhmmss(raid_duration)}\n"
+            f"Time in combat: \t{ms_to_hhmmss(pull_duration_sum)}\n"
+            f"Max pull length:\t{ms_to_hhmmss(longest_pull_duration)}\n"
+            f"Avg pull length:\t{ms_to_hhmmss(average_pull_duration)}\n\n"
+            f"Additional {ULTIMATE_SHORT_NAME} information - Wipes by phase:\n\n"
+            f"{event_counts_summary}"
+        )
 
-        Total pulls:\t\t{pull_count}
-        Raid start: \t\t{ms_to_datetime(raid_start_time)}
-        Raid end:   \t\t{ms_to_datetime(raid_end_time)}
-        Raid duration:  \t{ms_to_hhmmss(raid_duration)}
-        Time in combat: \t{ms_to_hhmmss(pull_duration_sum)}
-        Max pull length:\t{ms_to_hhmmss(longest_pull_duration)}
-        Avg pull length:\t{ms_to_hhmmss(average_pull_duration)}
-
-        **Event Counts**
-
-        """
         return summary
