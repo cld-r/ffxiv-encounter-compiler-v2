@@ -1,5 +1,5 @@
 import discord
-from fflogs_utils import handle_report
+from fflogs_utils import generate_report_summary
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -20,7 +20,8 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.content.startswith('https://www.fflogs.com/reports/'):
-        handle_report(message.content, client_id, client_secret)
+        summary = generate_report_summary(message.content, client_id, client_secret)
+        await message.channel.send(f"```{summary}```")
 
 # Run the client with the token
 if __name__ == '__main__':
