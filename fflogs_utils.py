@@ -3,10 +3,22 @@ from datetime import datetime, timezone, timedelta
 
 ULTIMATE_LONG_NAME = "Future's Rewritten (Ultimate)"
 ULTIMATE_SHORT_NAME = "FRU"
-FRU_FILTER_EXPRESSION = "ability.id IN (40140, 40197, 40179, 40212, 40259, 40266, 40269, 40301, 40298, 40306, 40327)"
-FRU_FILTER_EXPRESSION_2 = "ability.name IN ('Fall of Faith', 'Diamond Dust', 'Mirror, Mirror', 'Light Rampant', 'Endless Ice Age', 'Ultimate Relativity', 'Spell-In-Waiting', 'Darklit Dragonsong', 'Crystallize Time', 'Fulgent Blade', 'Paradise Lost')"
+# FRU_FILTER_EXPRESSION_2 = "ability.id IN (40140, 40197, 40179, 40212, 40259, 40266, 40269, 40301, 40298, 40306, 40327)"
+FRU_FILTER_EXPRESSION = "ability.name IN ('Fall of Faith', 'Diamond Dust', 'Mirror, Mirror', 'Light Rampant', 'Endless Ice Age', 'Ultimate Relativity', 'Apocalypse', 'Darklit Dragonsong', 'Crystallize Time', 'Fulgent Blade', 'Paradise Lost')"
 
-FRU_PRIORITY = ['Paradise Lost', 'Fulgent Blade', 'Crystallize Time', 'Darklit Dragonsong', 'Spell-In-Waiting', 'Ultimate Relativity', 'Endless Ice Age', 'Light Rampant', 'Mirror, Mirror', 'Diamond Dust', 'Fall of Faith', 'Utopian Sky']
+FRU_PRIORITY = ['Paradise Lost', 'Fulgent Blade', 'Crystallize Time', 'Darklit Dragonsong', 'Apocalypse', 'Ultimate Relativity', 'Endless Ice Age', 'Light Rampant', 'Mirror, Mirror', 'Diamond Dust', 'Fall of Faith', 'Utopian Sky']
+FRU_EVENT_SHORT_NAMES = {'Paradise Lost': 'Enrage', 
+                         'Fulgent Blade': 'Pandora', 
+                         'Crystallize Time': 'CT', 
+                         'Darklit Dragonsong': 'Darklit', 
+                         'Apocalypse': 'Apoc', 
+                         'Ultimate Relativity': 'UR', 
+                         'Endless Ice Age': 'Intermission', 
+                         'Light Rampant': 'LR', 
+                         'Mirror, Mirror': 'Mirror', 
+                         'Diamond Dust': 'DD', 
+                         'Fall of Faith': 'Faith', 
+                         'Utopian Sky': 'Utopian'}
 
 def ms_to_hhmmss(milliseconds):
     seconds = milliseconds // 1000
@@ -117,9 +129,11 @@ def get_fflogs_report(report_id, access_token):
         report_start_time = response_data['data']['reportData']['report']['startTime']
 
         for fight in response_data['data']['reportData']['report']['fights']:
-            if fight['name'] == 'Futures Rewritten':
+            pull_duration = fight['endTime'] - fight['startTime']
+
+            # Only include fights from the Ultimate and that are longer than 20 seconds
+            if fight['name'] == 'Futures Rewritten' and pull_duration >= 20000:
                 fight_ids.append(fight['id'])
-                pull_duration = fight['endTime'] - fight['startTime']
                 pull_duration_sum += pull_duration
 
                 if raid_start_time is None:
@@ -156,7 +170,7 @@ def generate_report_summary(url, client_id, client_secret):
                 if latest_event in latest_event_counts:
                     latest_event_counts[latest_event] += 1
 
-        event_counts_summary = ", ".join([f"{event}: {latest_event_counts[event]}" for event in reversed(FRU_PRIORITY)])
+        event_counts_summary = ", ".join([f"{FRU_EVENT_SHORT_NAMES[event]}: {latest_event_counts[event]}" for event in reversed(FRU_PRIORITY)])
         
         summary = (
             f"{ULTIMATE_LONG_NAME}\n\n"
