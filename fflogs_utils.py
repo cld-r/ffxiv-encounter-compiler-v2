@@ -137,12 +137,13 @@ def generate_report_summary(url, client_id, client_secret):
                 if latest_event in latest_event_counts:
                     latest_event_counts[latest_event] += 1
 
-        event_counts_summary = ", ".join([f"{ult.get_ability_names()[event]}: {latest_event_counts[event]}" for event in reversed(ult.get_priority_list())])
+        event_counts_summary = ", ".join([f"{ult.get_ability_names()[event]}: {latest_event_counts[event]}" for event in ult.get_ability_names().keys()])
         
         summary = (
             f"{ult.get_long_name()}\n\n"
             f"Report ID:  \t\t{report_id}\n"
             f"Total pulls:\t\t{pull_count}\n"
+            f"Total kills:\t\t0\n"
             f"Raid start: \t\t{ms_to_datetime(raid_start_time)}\n"
             f"Raid end:   \t\t{ms_to_datetime(raid_end_time)}\n"
             f"Raid duration:  \t{ms_to_hhmmss(raid_duration)}\n"
