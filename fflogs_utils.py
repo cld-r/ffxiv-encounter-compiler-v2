@@ -3,8 +3,11 @@ import json
 from time_utils import ms_to_datetime, ms_to_hhmmss
 from ultimate import FRU
 
+FFLOGS_API_URL = 'https://www.fflogs.com/api/v2/client'
+FFLOGS_OAUTH_URL = 'https://www.fflogs.com/oauth/token'
+
 def get_fflogs_access_token(client_id, client_secret):
-    url = 'https://www.fflogs.com/oauth/token'
+    url = FFLOGS_OAUTH_URL
     data = {
         'grant_type': 'client_credentials',
     }
@@ -25,7 +28,7 @@ def get_latest_event(priority_list, events):
     return priority_list[-1] # Return the last ability in the list if none of the priority abilities are found
 
 def get_fflogs_events(report_id, wipe_id, access_token, priority_list, filter_expression):
-    url = 'https://www.fflogs.com/api/v2/client'
+    url = FFLOGS_API_URL
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
@@ -56,7 +59,7 @@ def get_fflogs_events(report_id, wipe_id, access_token, priority_list, filter_ex
         return latest_event
 
 def get_fflogs_report(report_id, access_token):
-    url = 'https://www.fflogs.com/api/v2/client'
+    url = FFLOGS_API_URL
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
@@ -86,7 +89,12 @@ def get_fflogs_report(report_id, access_token):
     if response.status_code == 200:
         print(f"Successfully fetched report data: {response.status_code}")
         response_data = response.json()
-        print(json.dumps(response_data, indent=2))
+
+        if 'data' not in response_data:
+            print("Error: 'data' key not found in the response")
+            # print(json.dumps(response_data, indent=2))
+
+            return None, None, None, None, None, None, None, None
 
         wipe_ids = []
         kill_count = 0
@@ -100,7 +108,7 @@ def get_fflogs_report(report_id, access_token):
         for fight in response_data['data']['reportData']['report']['fights']:
             pull_duration = fight['endTime'] - fight['startTime']
 
-            # Only include fights from the Ultimate
+            # TODO: Make this more generic
             if fight['name'] == 'Futures Rewritten':
                 if fight['kill']:
                     kill_count +=1
@@ -130,6 +138,7 @@ def generate_report_summary(url, client_id, client_secret):
     report_id = url.split('/reports/')[1].split('?')[0]
     access_token = get_fflogs_access_token(client_id, client_secret)
 
+    # TODO: Make this more generic
     ult = FRU()
 
     if access_token:
